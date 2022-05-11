@@ -74,6 +74,267 @@ endif()
 
 
 
+
+
+	//example：_getTitle(L"xz.aliyun.com",80,FALSE, L"/t/10382",L"Cookie: UM_distinctid=17cb6323231eb-0d856633f9d722-333376b-144000-17cb6323232832;")
+	//AllocConsole();   (CString _subDomain, int _subDomainPort, BOOL fUseSSL, CString _Path, CString _Cookie, BOOL UTF8)
+	//freopen("CONIN$", "r", stdin);
+	//freopen("CONOUT$", "w", stdout);
+	//freopen("CONOUT$", "w", stderr);
+	
+
+	//下面是爬虫的获取url：
+	HINTERNET hSession = NULL,   
+		hConnect = NULL,     
+		hRequest = NULL;    
+	BOOL  bResults = FALSE;   
+	DWORD dwSize = sizeof(DWORD);   
+	DWORD dwStatusCode = 0;   
+	DWORD dwDownloaded = 0;   
+	LPSTR pszOutBuffer;
+	LPVOID lpOutBuffer = NULL;    
+	
+
+	;
+
+	
+	hSession = WinHttpOpen(L"A WinHTTP Example Program/4.0",       
+		WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+		WINHTTP_NO_PROXY_NAME,
+		WINHTTP_NO_PROXY_BYPASS, 0);
+
+
+
+
+	if (hSession) {
+		hConnect = WinHttpConnect(hSession, LPCWSTR(_subDomain),      
+			_subDomainPort,    //默认：INTERNET_DEFAULT_HTTP_PORT, 
+			0);
+		printf("hConnect good ：%s\n", hConnect);
+	}
+	if (hConnect) {
+		hRequest = WinHttpOpenRequest(hConnect, L"GET",   
+			LPCWSTR(_Path),   
+			NULL,
+			WINHTTP_NO_REFERER,     
+			WINHTTP_DEFAULT_ACCEPT_TYPES,      
+			(fUseSSL) ?
+			WINHTTP_FLAG_SECURE : 0
+		);   
+		printf("hRequest good ：%s\n", hRequest);
+	}
+	//
+
+	if (hRequest) {
+		bResults = WinHttpAddRequestHeaders(hRequest,
+			LPCWSTR(_Cookie),   //请求头内容    
+			(ULONG)-1L,               //请求头长度
+			WINHTTP_ADDREQ_FLAG_ADD
+		);
+
+	}
+
+	if (hRequest) {
+		bResults = WinHttpSendRequest(hRequest,
+			WINHTTP_NO_ADDITIONAL_HEADERS,
+			0, WINHTTP_NO_REQUEST_DATA, 0,
+			0, 0);
+		printf("Internet spider is running please wait....\n");  
+		printf("bResults good ：true\n");  
+	}
+
+	if (!bResults) {
+		return 0;   
+		printf("Error %d has occurred.\n", GetLastError());
+	}
+
+	//接收请求
+	if (bResults) {   
+		bResults = WinHttpReceiveResponse(hRequest, NULL);
+	}
+
+
+
+	if (bResults)
+		bResults = WinHttpQueryHeaders(hRequest,
+			WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+			NULL,
+			&dwStatusCode,
+			&dwSize,
+			WINHTTP_NO_HEADER_INDEX);
+
+	if (bResults)
+	{
+		if (dwStatusCode == 302)
+		{
+			printf("Found.......jump to......:302\n");
+		}
+		else if (dwStatusCode == 200)
+		{
+			printf("Found:200\n");
+		}
+		else if (dwStatusCode == 500)
+		{
+			printf("Server Error.....:500\n");
+		}
+		else if (dwStatusCode == 404)
+		{
+			printf("Not Found.........:404\n");
+		}
+		else
+		{
+			printf("Server had some troble\n");
+		}
+
+	}
+
+
+
+	//获取内容：返回的header内容
+	if (bResults) {
+		bResults = WinHttpQueryHeaders(hRequest,
+			WINHTTP_QUERY_RAW_HEADERS_CRLF,
+			WINHTTP_HEADER_NAME_BY_INDEX,
+			NULL,
+			&dwSize,
+			WINHTTP_NO_HEADER_INDEX);
+		// Allocate memory for the buffer.
+		if (GetLastError() == ERROR_INSUFFICIENT_BUFFER)
+		{
+			lpOutBuffer = new WCHAR[dwSize / sizeof(WCHAR)];
+
+			// Now, use WinHttpQueryHeaders to retrieve the header.
+			bResults = WinHttpQueryHeaders(hRequest,
+				WINHTTP_QUERY_RAW_HEADERS_CRLF,
+				WINHTTP_HEADER_NAME_BY_INDEX,
+				lpOutBuffer, &dwSize,
+				WINHTTP_NO_HEADER_INDEX);
+
+		}
+
+	}
+	printf("dwSize：%d\n", dwSize);
+	if (bResults)
+		printf("Header contents: \n%S", lpOutBuffer);
+	delete[] lpOutBuffer;
+
+
+
+   /*
+   LPVOID lpHeaderBuffer = NULL;
+   dwSize = 0;
+   pszOutBuffer = NULL;
+   dwDownloaded = 0;
+   wchar_t* pwText = NULL;
+   if (bResults)
+   {
+	   do
+	   {
+		   dwSize = 0;
+		   if (!WinHttpQueryDataAvailable(hRequest, &dwSize)) {
+			   printf("Error：WinHttpQueryDataAvailable failed：",GetLastError());
+			   break;
+		   }
+		   if (!dwSize)    break;  
+
+		   pszOutBuffer = new char[dwSize + 1];
+		   if (!pszOutBuffer) {
+			   printf("Out of memory.");
+			   break;
+		   }
+		   ZeroMemory(pszOutBuffer, dwSize + 1);      
+
+		   if (!WinHttpReadData(hRequest, pszOutBuffer, dwSize, &dwDownloaded)) {
+			   printf("Error：WinHttpQueryDataAvailable failed：", GetLastError());
+		   }
+		   if (!dwDownloaded)
+			   break;
+
+	   } while (dwSize > 0);
+	 
+	   DWORD dwNum = MultiByteToWideChar(CP_ACP, 0, pszOutBuffer, -1, NULL, 0);    
+	   pwText = new wchar_t[dwNum];                                               
+	   MultiByteToWideChar(CP_UTF8, 0, pszOutBuffer, -1, pwText, dwNum);        
+	   printf("Received contents: \n%S", pwText);
+   }
+   */
+   
+
+
+
+	CString allwebsite;   
+
+	if (bResults)
+	{
+		do
+		{
+			dwSize = 0;
+			if (!WinHttpQueryDataAvailable(hRequest, &dwSize))
+				printf("Error %u in WinHttpQueryDataAvailable.\n",
+					GetLastError());
+
+			pszOutBuffer = new char[dwSize + 1];
+			if (!pszOutBuffer)
+			{
+				printf("Out of memory\n");
+				dwSize = 0;
+			}
+			else
+			{
+
+				ZeroMemory(pszOutBuffer, dwSize + 1);
+
+				if (!WinHttpReadData(hRequest, (LPVOID)pszOutBuffer,
+					dwSize, &dwDownloaded))
+					printf("Error %u in WinHttpReadData.\n", GetLastError());
+				else
+				{
+					
+
+
+					CString tmp;
+
+					if (!(UTF8 ? 1 : 0))
+					{
+
+						tmp = CString(pszOutBuffer); 
+					}
+					else
+					{
+						DWORD dwNum = MultiByteToWideChar(CP_UTF8, 0, pszOutBuffer, -1, NULL, 0);    //接收的网站是GBK的，那就不要用这个。。原：DWORD dwNum = MultiByteToWideChar(CP_ACP, 0, pszOutBuffer, -1, NULL, 0);  
+						wchar_t* pwText = new wchar_t[dwNum];
+						MultiByteToWideChar(CP_UTF8, 0, pszOutBuffer, -1, pwText, dwNum);
+						tmp = CString(pwText);   //转CString
+					}
+					
+					
+
+					
+					allwebsite += tmp;
+					
+				}
+
+
+				// Free the memory allocated to the buffer.
+				delete[] pszOutBuffer;
+			}
+		} while (dwSize > 0);
+	}
+
+
+
+
+
+
+
+	if (hRequest) WinHttpCloseHandle(hRequest);
+	if (hConnect) WinHttpCloseHandle(hConnect);
+	if (hSession) WinHttpCloseHandle(hSession);
+
+
+	return allwebsite;   
+
+
 set(CMAKE_C_IMPLICIT_INCLUDE_DIRECTORIES "C:/Program Files/JetBrains/CLion 2021.3.4/bin/mingw/lib/gcc/x86_64-w64-mingw32/11.2.0/include;C:/Program Files/JetBrains/CLion 2021.3.4/bin/mingw/include;C:/Program Files/JetBrains/CLion 2021.3.4/bin/mingw/lib/gcc/x86_64-w64-mingw32/11.2.0/include-fixed;C:/Program Files/JetBrains/CLion 2021.3.4/bin/mingw/x86_64-w64-mingw32/include")
 set(CMAKE_C_IMPLICIT_LINK_LIBRARIES "mingw32;gcc;moldname;mingwex;kernel32;pthread;advapi32;shell32;user32;kernel32;iconv;mingw32;gcc;moldname;mingwex;kernel32")
 set(CMAKE_C_IMPLICIT_LINK_DIRECTORIES "C:/Program Files/JetBrains/CLion 2021.3.4/bin/mingw/lib/gcc/x86_64-w64-mingw32/11.2.0;C:/Program Files/JetBrains/CLion 2021.3.4/bin/mingw/lib/gcc;C:/Program Files/JetBrains/CLion 2021.3.4/bin/mingw/x86_64-w64-mingw32/lib;C:/Program Files/JetBrains/CLion 2021.3.4/bin/mingw/lib")
